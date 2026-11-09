@@ -1,9 +1,15 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
-import { I18nModule, AcceptLanguageResolver, QueryResolver, HeaderResolver } from 'nestjs-i18n';
+import {
+  I18nModule,
+  AcceptLanguageResolver,
+  QueryResolver,
+  HeaderResolver,
+} from 'nestjs-i18n';
 import { ConfigModule } from '@nestjs/config';
 import * as path from 'path';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -17,7 +23,7 @@ import * as path from 'path';
         fileFormat: 'json',
       },
       resolvers: [
-        new QueryResolver(['lang','l']),
+        new QueryResolver(['lang', 'l']),
         new HeaderResolver(['x-custom-lang', 'x-lang']),
         new AcceptLanguageResolver(),
       ],

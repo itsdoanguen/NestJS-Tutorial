@@ -16,14 +16,36 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('/ (GET) - default language (en)', () => {
     return request(app.getHttpServer())
       .get('/')
       .expect(200)
       .expect('Hello World!');
   });
 
-  afterEach(async () => {
-    await app.close();
+  it('/ (GET) - query ?lang=vi returns Vietnamese', () => {
+    return request(app.getHttpServer())
+      .get('/?lang=vi')
+      .expect(200)
+      .expect('Xin chào thế giới!');
+  });
+
+  it('/ (GET) - header Accept-Language: vi returns Vietnamese', () => {
+    return request(app.getHttpServer())
+      .get('/')
+      .set('Accept-Language', 'vi')
+      .expect(200)
+      .expect('Xin chào thế giới!');
+  });
+
+  it('/ (GET) - unsupported language (?lang=fr) falls back to English', () => {
+    return request(app.getHttpServer())
+      .get('/?lang=fr')
+      .expect(200)
+      .expect('Hello World!');
   });
 });
