@@ -18,7 +18,7 @@ export class AppController {
   @ApiResponse({
     status: 200,
     description: 'Returns a hello message.',
-    schema: { type: 'string', example: 'Hello, World!' },
+    schema: { type: 'string', example: 'Hello World!' },
   })
   getHello(): string {
     return this.appService.getHello();
