@@ -12,7 +12,7 @@ export class AppController {
   @ApiQuery({
     name: 'lang',
     required: false,
-    description: 'Language code for translation (e.g., en, es, fr).',
+    description: 'Language code for translation (en, vi).',
     example: 'en',
   })
   @ApiResponse({
