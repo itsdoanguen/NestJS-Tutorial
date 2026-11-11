@@ -12,6 +12,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ConfigService } from '@nestjs/config';
 import * as path from 'path';
 import Joi from 'joi';
+import { RedisModule } from './redis/redis.module.js';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import Joi from 'joi';
         new AcceptLanguageResolver(),
       ],
     }),
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [AppService],
