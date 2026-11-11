@@ -9,12 +9,35 @@ import {
 } from 'nestjs-i18n';
 import { ConfigModule } from '@nestjs/config';
 import * as path from 'path';
+import Joi from 'joi';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      validationSchema: Joi.object({
+        NODE_ENV: Joi.string()
+          .valid('development', 'production', 'test')
+          .default('development'),
+        PORT: Joi.number().default(3000),
+
+        DB_HOST: Joi.string().required(),
+        DB_PORT: Joi.number().default(3306),
+        DB_USERNAME: Joi.string().required(),
+        DB_PASSWORD: Joi.string().required(),
+        DB_NAME: Joi.string().required(),
+
+        REDIS_HOST: Joi.string().required(),
+        REDIS_PORT: Joi.number().default(6379),
+        REDIS_PASSWORD: Joi.string().optional().allow(''),
+
+        JWT_SECRET: Joi.string().required(),
+        JWT_EXPIRES_IN: Joi.string().default('1d'),
+      }).options({
+        allowUnknown: true,
+        abortEarly: true,
+      }),
     }),
     I18nModule.forRoot({
       fallbackLanguage: 'en',
