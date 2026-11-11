@@ -30,6 +30,17 @@ async function bootstrap() {
     .addTag('app')
     .addTag('Auth')
     .addBearerAuth()
+    .addGlobalParameters({
+      name: 'x-lang',
+      in: 'header',
+      required: false,
+      description: 'Language code (en: English, vi: Tiếng Việt)',
+      schema: {
+        type: 'string',
+        enum: ['en', 'vi'],
+        default: 'en',
+      },
+    })
     .build();
   const document = SwaggerModule.createDocument(app, config);
 

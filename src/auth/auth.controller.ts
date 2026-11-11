@@ -28,7 +28,7 @@ import { User } from '../database/entities/user.entity.js';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post(['api/users', 'users'])
+  @Post('api/users')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({
@@ -43,7 +43,7 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
-  @Post(['api/users/login', 'users/login'])
+  @Post('api/users/login')
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   @Header('Pragma', 'no-cache')
@@ -61,7 +61,7 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
-  @Get(['api/user', 'user'])
+  @Get('api/user')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
@@ -89,7 +89,7 @@ export class AuthController {
     };
   }
 
-  @Post(['api/users/logout', 'users/logout'])
+  @Post('api/users/logout')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
