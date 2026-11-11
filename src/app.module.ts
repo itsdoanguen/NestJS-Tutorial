@@ -13,26 +13,32 @@ import { ConfigService } from '@nestjs/config';
 import * as path from 'path';
 import Joi from 'joi';
 import { RedisModule } from './redis/redis.module.js';
+import { AuthModule } from './auth/auth.module.js';
+
+const DEFAULT_APP_PORT = 3000;
+const DEFAULT_MYSQL_PORT = 3306;
+const DEFAULT_REDIS_PORT = 6379;
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath:
+        process.env.NODE_ENV === 'test' ? ['.env.test', '.env'] : '.env',
       validationSchema: Joi.object({
         NODE_ENV: Joi.string()
           .valid('development', 'production', 'test')
           .default('development'),
-        PORT: Joi.number().default(3000),
+        PORT: Joi.number().default(DEFAULT_APP_PORT),
 
         DB_HOST: Joi.string().required(),
-        DB_PORT: Joi.number().default(3306),
+        DB_PORT: Joi.number().default(DEFAULT_MYSQL_PORT),
         DB_USERNAME: Joi.string().required(),
         DB_PASSWORD: Joi.string().required(),
         DB_NAME: Joi.string().required(),
 
         REDIS_HOST: Joi.string().required(),
-        REDIS_PORT: Joi.number().default(6379),
+        REDIS_PORT: Joi.number().default(DEFAULT_REDIS_PORT),
         REDIS_PASSWORD: Joi.string().optional().allow(''),
 
         JWT_SECRET: Joi.string().required(),
@@ -72,6 +78,7 @@ import { RedisModule } from './redis/redis.module.js';
       ],
     }),
     RedisModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

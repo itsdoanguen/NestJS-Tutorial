@@ -1,4 +1,8 @@
-import { Logger, ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
+import {
+  Logger,
+  ValidationPipe,
+  ClassSerializerInterceptor,
+} from '@nestjs/common';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -20,10 +24,12 @@ async function bootstrap() {
   const port = configService.get<number>('PORT', 3000);
 
   const config = new DocumentBuilder()
-    .setTitle('NestJS API')
-    .setDescription('The NestJS API description')
+    .setTitle('NestJS Tutorial API')
+    .setDescription('The NestJS Tutorial API documentation')
     .setVersion('1.0')
     .addTag('app')
+    .addTag('Auth')
+    .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
 

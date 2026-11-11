@@ -18,7 +18,7 @@ export class User {
   @Column({ unique: true })
   username: string;
 
-  @Exclude() // Ẩn password khỏi JSON response khi dùng ClassSerializerInterceptor
+  @Exclude()
   @Column()
   password: string;
 
