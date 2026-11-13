@@ -14,22 +14,14 @@ import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RedisService } from '../redis/redis.service.js';
 import { I18nService } from 'nestjs-i18n';
-import { JwtPayload } from './interfaces/jwt-payload.interface.js';
-
-const DUMMY_HASH =
-  '$2b$10$wN37zT70eOa4xWq1uM8v0eYQ7n5V5sR6k0w5G4e5t7j8k9l0m1n2o';
-const MYSQL_ER_DUP_ENTRY = 'ER_DUP_ENTRY';
-const MYSQL_DUP_ENTRY_ERRNO = 1062;
-const DEFAULT_JWT_EXPIRES_IN = '1d';
-
-export interface UserResponse {
-  email: string;
-  token: string;
-  username: string;
-  bio: string | null;
-  image: string | null;
-}
-
+import type { JwtPayload } from './interfaces/jwt-payload.interface.js';
+import {
+  DUMMY_HASH,
+  MYSQL_DUP_ENTRY_ERRNO,
+  MYSQL_ER_DUP_ENTRY,
+  DEFAULT_JWT_EXPIRES_IN,
+} from './constants/auth.constant.js';
+import type { UserResponse } from './interfaces/user-response.interface.js';
 @Injectable()
 export class AuthService {
   constructor(

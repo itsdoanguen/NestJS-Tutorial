@@ -15,11 +15,12 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { AuthService, UserResponse } from './auth.service.js';
+import { AuthService } from './auth.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import type { AuthenticatedRequest } from './interfaces/authenticated-request.interface.js';
+import type { UserResponse } from './interfaces/user-response.interface.js';
 import { CurrentUser } from './decorators/current-user.decorator.js';
 import { User } from '../database/entities/user.entity.js';
 
