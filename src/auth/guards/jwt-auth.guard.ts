@@ -10,13 +10,8 @@ import { RedisService } from '../../redis/redis.service.js';
 import { I18nService } from 'nestjs-i18n';
 import { JwtPayload } from '../interfaces/jwt-payload.interface.js';
 import { Request } from 'express';
-
-const AUTH_SCHEME_BEARER = 'Bearer';
-
-export interface AuthenticatedRequest extends Request {
-  token?: string;
-  tokenPayload?: JwtPayload;
-}
+import { AuthenticatedRequest } from '../interfaces/authenticated-request.interface.js';
+import { AUTH_SCHEME_BEARER } from '../constants/auth.constant.js';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
