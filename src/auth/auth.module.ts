@@ -27,6 +27,12 @@ import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard.js';
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtAuthGuard, OptionalJwtAuthGuard],
-  exports: [AuthService, JwtAuthGuard, OptionalJwtAuthGuard, PassportModule, JwtModule],
+  exports: [
+    AuthService,
+    JwtAuthGuard,
+    OptionalJwtAuthGuard,
+    PassportModule,
+    JwtModule,
+  ],
 })
 export class AuthModule {}

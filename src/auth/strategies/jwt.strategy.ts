@@ -34,6 +34,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       });
     }
 
+    if (user.passwordChangedAt && payload.iat) {
+      const changedAtSeconds = Math.floor(
+        user.passwordChangedAt.getTime() / 1000,
+      );
+      if (payload.iat < changedAtSeconds) {
+        throw new UnauthorizedException({
+          message: this.i18n.t('auth.TOKEN_REVOKED'),
+        });
+      }
+    }
+
     return user;
   }
 }

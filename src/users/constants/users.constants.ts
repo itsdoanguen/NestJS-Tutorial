@@ -1,0 +1,10 @@
+export const BCRYPT_SALT_ROUNDS = 10;
+export const AVATAR_FIELD_NAME = 'avatar';
+export const MAX_UPLOAD_FILES = 1;
+export const MAX_MULTIPART_FILE_BYTES = 10 * 1024 * 1024;
+export const EMAIL_MAX_LENGTH = 255;
+export const USERNAME_MAX_LENGTH = 50;
+export const PASSWORD_MIN_LENGTH = 6;
+export const PASSWORD_MAX_LENGTH = 72;
+export const BIO_MAX_LENGTH = 1000;
+export const IMAGE_URL_MAX_LENGTH = 500;

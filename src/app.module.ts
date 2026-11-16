@@ -21,6 +21,8 @@ import {
   DEFAULT_UPLOAD_MAX_FILE_SIZE,
 } from './common/constants/app.constants.js';
 import { AttachmentsModule } from './attachment/attachment.module.js';
+import { ProfilesModule } from './profiles/profiles.module.js';
+import { UsersModule } from './users/users.module.js';
 
 @Module({
   imports: [
@@ -89,6 +91,8 @@ import { AttachmentsModule } from './attachment/attachment.module.js';
     RedisModule,
     AuthModule,
     AttachmentsModule,
+    UsersModule,
+    ProfilesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
