@@ -20,6 +20,7 @@ import {
   DEFAULT_REDIS_PORT,
   DEFAULT_UPLOAD_MAX_FILE_SIZE,
 } from './common/constants/app.constants.js';
+import { AttachmentsModule } from './attachment/attachment.module.js';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import {
     }),
     RedisModule,
     AuthModule,
+    AttachmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

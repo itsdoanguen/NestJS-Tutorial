@@ -41,6 +41,7 @@ async function bootstrap() {
         default: 'en',
       },
     })
+    .addTag('Attachments')
     .build();
   const document = SwaggerModule.createDocument(app, config);
 
