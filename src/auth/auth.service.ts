@@ -17,10 +17,12 @@ import { I18nService } from 'nestjs-i18n';
 import type { JwtPayload } from './interfaces/jwt-payload.interface.js';
 import {
   DUMMY_HASH,
-  MYSQL_DUP_ENTRY_ERRNO,
-  MYSQL_ER_DUP_ENTRY,
   DEFAULT_JWT_EXPIRES_IN,
 } from './constants/auth.constant.js';
+import {
+  MYSQL_ER_DUP_ENTRY,
+  MYSQL_DUP_ENTRY_ERRNO,
+} from '../common/constants/database.constants.js';
 import type { UserResponse } from './interfaces/user-response.interface.js';
 @Injectable()
 export class AuthService {
