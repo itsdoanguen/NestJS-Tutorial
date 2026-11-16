@@ -9,10 +9,23 @@ export type AttachableType =
 export const ATTACHMENT_URL_PREFIX = '/api/attachments';
 export const AVATAR_SUBDIR = 'avatars';
 
+export const IMAGE_MIME = {
+  JPEG: 'image/jpeg',
+  PNG: 'image/png',
+  WEBP: 'image/webp',
+} as const;
+
 export const MIME_TO_EXTENSION: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
+  [IMAGE_MIME.JPEG]: 'jpg',
+  [IMAGE_MIME.PNG]: 'png',
+  [IMAGE_MIME.WEBP]: 'webp',
 };
 
 export const ALLOWED_IMAGE_MIME_TYPES = Object.keys(MIME_TO_EXTENSION);
+
+export const WEBP_RIFF_SIGNATURE = 'RIFF';
+export const WEBP_FORMAT_SIGNATURE = 'WEBP';
+
+export const HEADER_CONTENT_TYPE = 'Content-Type';
+export const HEADER_CONTENT_LENGTH = 'Content-Length';
+export const HEADER_CONTENT_DISPOSITION = 'Content-Disposition';

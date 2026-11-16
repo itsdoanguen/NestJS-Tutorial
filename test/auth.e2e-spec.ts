@@ -4,6 +4,8 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module.js';
 import { DataSource } from 'typeorm';
+import { Attachment } from '../src/database/entities/attachment.entity.js';
+import { Follow } from '../src/database/entities/follow.entity.js';
 import { User } from '../src/database/entities/user.entity.js';
 
 describe('Auth (e2e)', () => {
@@ -35,15 +37,31 @@ describe('Auth (e2e)', () => {
     }
   });
 
+  const clearTestTables = async () => {
+    await dataSource
+      .getRepository(Follow)
+      .createQueryBuilder()
+      .delete()
+      .execute();
+    await dataSource
+      .getRepository(Attachment)
+      .createQueryBuilder()
+      .delete()
+      .execute();
+    await dataSource
+      .getRepository(User)
+      .createQueryBuilder()
+      .delete()
+      .execute();
+  };
+
   beforeEach(async () => {
-    const userRepo = dataSource.getRepository(User);
-    await userRepo.clear();
+    await clearTestTables();
   });
 
   afterAll(async () => {
     if (dataSource?.isInitialized) {
-      const userRepo = dataSource.getRepository(User);
-      await userRepo.clear();
+      await clearTestTables();
     }
     await app.close();
   });

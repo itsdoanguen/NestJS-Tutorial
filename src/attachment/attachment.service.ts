@@ -21,7 +21,10 @@ import {
   ALLOWED_IMAGE_MIME_TYPES,
   ATTACHABLE_TYPE,
   ATTACHMENT_URL_PREFIX,
+  IMAGE_MIME,
   MIME_TO_EXTENSION,
+  WEBP_FORMAT_SIGNATURE,
+  WEBP_RIFF_SIGNATURE,
 } from './constants/attachment.constants.js';
 import type {
   AttachmentStreamResult,
@@ -177,7 +180,7 @@ export class AttachmentsService {
       buffer[1] === 0xd8 &&
       buffer[2] === 0xff
     ) {
-      return 'image/jpeg';
+      return IMAGE_MIME.JPEG;
     }
 
     if (
@@ -191,15 +194,15 @@ export class AttachmentsService {
       buffer[6] === 0x1a &&
       buffer[7] === 0x0a
     ) {
-      return 'image/png';
+      return IMAGE_MIME.PNG;
     }
 
     if (
       buffer.length >= 12 &&
-      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
-      buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+      buffer.subarray(0, 4).toString('ascii') === WEBP_RIFF_SIGNATURE &&
+      buffer.subarray(8, 12).toString('ascii') === WEBP_FORMAT_SIGNATURE
     ) {
-      return 'image/webp';
+      return IMAGE_MIME.WEBP;
     }
 
     return null;
