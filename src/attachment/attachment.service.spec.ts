@@ -12,6 +12,7 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import { I18nService } from 'nestjs-i18n';
+import { DataSource } from 'typeorm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Attachment } from '../database/entities/attachment.entity.js';
 import { User } from '../database/entities/user.entity.js';
@@ -28,6 +29,8 @@ const PNG_BUFFER = Buffer.from([
 describe('AttachmentsService', () => {
   let service: AttachmentsService;
   let attachmentRepository: any;
+  let dataSource: any;
+  let mockTxManager: any;
   let configService: any;
   let i18nService: any;
   let tempUploadDir: string;
@@ -39,6 +42,17 @@ describe('AttachmentsService', () => {
 
     attachmentRepository = {
       findOne: vi.fn(),
+    };
+
+    mockTxManager = {
+      find: vi.fn(),
+      create: vi.fn((_entity, data) => ({ ...data })),
+      save: vi.fn(async (_entity, data) => data),
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+
+    dataSource = {
+      transaction: vi.fn(async (cb) => cb(mockTxManager)),
     };
 
     configService = {
@@ -63,6 +77,10 @@ describe('AttachmentsService', () => {
         {
           provide: getRepositoryToken(Attachment),
           useValue: attachmentRepository,
+        },
+        {
+          provide: DataSource,
+          useValue: dataSource,
         },
         {
           provide: ConfigService,
@@ -100,26 +118,22 @@ describe('AttachmentsService', () => {
     }) as Express.Multer.File;
 
   describe('replaceAttachment', () => {
-    it('should validate magic bytes, write file with UUID, replace old record, and return oldFilePaths', async () => {
-      const manager: any = {
-        find: vi.fn().mockResolvedValue([
-          {
-            id: 'old-id',
-            filePath: path.join(AVATAR_SUBDIR, 'old-id.png'),
-          },
-        ]),
-        create: vi.fn((_entity, data) => ({ ...data })),
-        save: vi.fn(async (_entity, data) => data),
-        delete: vi.fn().mockResolvedValue(undefined),
-      };
+    it('should validate magic bytes, write file with UUID, replace old record inside a DataSource transaction, and return oldFilePaths', async () => {
+      mockTxManager.find.mockResolvedValue([
+        {
+          id: 'old-id',
+          filePath: path.join(AVATAR_SUBDIR, 'old-id.png'),
+        },
+      ]);
 
-      const result = await service.replaceAttachment(manager, {
+      const result = await service.replaceAttachment({
         file: buildMockFile(),
         attachableId: '1',
         attachableType: ATTACHABLE_TYPE.USER,
         subDir: AVATAR_SUBDIR,
       });
 
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
       expect(result.attachment.url).toBe(
         `/api/attachments/${result.attachment.id}`,
       );
@@ -127,7 +141,7 @@ describe('AttachmentsService', () => {
       expect(result.oldFilePaths).toEqual([
         path.join(AVATAR_SUBDIR, 'old-id.png'),
       ]);
-      expect(manager.find).toHaveBeenCalledWith(Attachment, {
+      expect(mockTxManager.find).toHaveBeenCalledWith(Attachment, {
         select: {
           id: true,
           filePath: true,
@@ -137,22 +151,45 @@ describe('AttachmentsService', () => {
           attachableId: '1',
         },
       });
-      expect(manager.delete).toHaveBeenCalledWith(Attachment, ['old-id']);
+      expect(mockTxManager.delete).toHaveBeenCalledWith(Attachment, ['old-id']);
 
       const writtenPath = path.join(tempUploadDir, result.attachment.filePath);
       const writtenContent = await fs.readFile(writtenPath);
       expect(writtenContent).toEqual(PNG_BUFFER);
     });
 
+    it('should reuse provided transactional manager when an active transaction already exists', async () => {
+      const outerManager: any = {
+        queryRunner: { isTransactionActive: true },
+        find: vi.fn().mockResolvedValue([]),
+        create: vi.fn((_entity, data) => ({ ...data })),
+        save: vi.fn(async (_entity, data) => data),
+        delete: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const result = await service.replaceAttachment(
+        {
+          file: buildMockFile(),
+          attachableId: '1',
+          attachableType: ATTACHABLE_TYPE.USER,
+          subDir: AVATAR_SUBDIR,
+        },
+        outerManager,
+      );
+
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+      expect(outerManager.save).toHaveBeenCalledTimes(1);
+      expect(result.oldFilePaths).toEqual([]);
+    });
+
     it('should reject spoofed files whose magic bytes do not match image types', async () => {
-      const manager: any = {};
       const spoofedFile = buildMockFile({
         mimetype: 'image/png',
         buffer: Buffer.from('not-actually-a-png-file'),
       });
 
       await expect(
-        service.replaceAttachment(manager, {
+        service.replaceAttachment({
           file: spoofedFile,
           attachableId: '1',
           attachableType: ATTACHABLE_TYPE.USER,
@@ -162,13 +199,12 @@ describe('AttachmentsService', () => {
     });
 
     it('should reject files exceeding UPLOAD_MAX_FILE_SIZE', async () => {
-      const manager: any = {};
       const oversizedFile = buildMockFile({
         size: 3 * 1024 * 1024,
       });
 
       await expect(
-        service.replaceAttachment(manager, {
+        service.replaceAttachment({
           file: oversizedFile,
           attachableId: '1',
           attachableType: ATTACHABLE_TYPE.USER,
@@ -178,14 +214,11 @@ describe('AttachmentsService', () => {
     });
 
     it('should clean up the newly written file if database save fails', async () => {
-      const manager: any = {
-        find: vi.fn().mockResolvedValue([]),
-        create: vi.fn((_entity, data) => ({ ...data })),
-        save: vi.fn().mockRejectedValue(new Error('DB failure')),
-      };
+      mockTxManager.find.mockResolvedValue([]);
+      mockTxManager.save.mockRejectedValue(new Error('DB failure'));
 
       await expect(
-        service.replaceAttachment(manager, {
+        service.replaceAttachment({
           file: buildMockFile(),
           attachableId: '1',
           attachableType: ATTACHABLE_TYPE.USER,

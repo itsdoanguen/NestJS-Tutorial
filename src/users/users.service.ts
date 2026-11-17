@@ -5,10 +5,9 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { I18nService } from 'nestjs-i18n';
-import { Repository } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { AttachmentsService } from '../attachment/attachment.service.js';
 import {
   ATTACHABLE_TYPE,
@@ -29,8 +28,7 @@ import { UpdateUserDto } from './dto/update-user.dto.js';
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    private readonly dataSource: DataSource,
     private readonly attachmentsService: AttachmentsService,
     private readonly authService: AuthService,
     private readonly redisService: RedisService,
@@ -50,36 +48,36 @@ export class UsersService {
 
     let updatedUser: User;
     try {
-      updatedUser = await this.userRepository.manager.transaction(
-        async (manager) => {
-          const user = await manager.findOne(User, {
-            where: { id: currentUser.id },
+      updatedUser = await this.dataSource.transaction(async (manager) => {
+        const user = await manager.findOne(User, {
+          where: { id: currentUser.id },
+        });
+
+        if (!user) {
+          throw new NotFoundException({
+            message: this.i18n.t('users.USER_NOT_FOUND'),
           });
+        }
 
-          if (!user) {
-            throw new NotFoundException({
-              message: this.i18n.t('users.USER_NOT_FOUND'),
-            });
-          }
+        await this.applyDtoUpdates(user, dto);
 
-          await this.applyDtoUpdates(user, dto);
+        if (avatarFile) {
+          const replaceResult = await this.attachmentsService.replaceAttachment(
+            {
+              file: avatarFile,
+              attachableId: String(user.id),
+              attachableType: ATTACHABLE_TYPE.USER,
+              subDir: AVATAR_SUBDIR,
+            },
+            manager,
+          );
+          newFilePath = replaceResult.attachment.filePath;
+          oldFilePaths = replaceResult.oldFilePaths;
+          user.image = replaceResult.attachment.url;
+        }
 
-          if (avatarFile) {
-            const replaceResult =
-              await this.attachmentsService.replaceAttachment(manager, {
-                file: avatarFile,
-                attachableId: String(user.id),
-                attachableType: ATTACHABLE_TYPE.USER,
-                subDir: AVATAR_SUBDIR,
-              });
-            newFilePath = replaceResult.attachment.filePath;
-            oldFilePaths = replaceResult.oldFilePaths;
-            user.image = replaceResult.attachment.url;
-          }
-
-          return manager.save(User, user);
-        },
-      );
+        return manager.save(User, user);
+      });
     } catch (error: unknown) {
       if (newFilePath) {
         await this.attachmentsService.deleteFilesSafely([newFilePath]);

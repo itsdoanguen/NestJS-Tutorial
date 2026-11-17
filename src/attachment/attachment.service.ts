@@ -14,7 +14,7 @@ import { createReadStream } from 'fs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { I18nService } from 'nestjs-i18n';
-import { EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Attachment } from '../database/entities/attachment.entity.js';
 import { User } from '../database/entities/user.entity.js';
 import {
@@ -38,13 +38,14 @@ export class AttachmentsService {
   constructor(
     @InjectRepository(Attachment)
     private readonly attachmentRepository: Repository<Attachment>,
+    private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly i18n: I18nService,
   ) {}
 
   async replaceAttachment(
-    manager: EntityManager,
     params: ReplaceAttachmentParams,
+    manager?: EntityManager,
   ): Promise<ReplaceAttachmentResult> {
     const detectedMime = this.validateImageFile(params.file);
     const ext = MIME_TO_EXTENSION[detectedMime];
@@ -55,8 +56,10 @@ export class AttachmentsService {
     await fs.mkdir(path.dirname(safePath), { recursive: true });
     await fs.writeFile(safePath, params.file.buffer);
 
-    try {
-      const oldAttachments = await manager.find(Attachment, {
+    const executeDbReplace = async (
+      txManager: EntityManager,
+    ): Promise<ReplaceAttachmentResult> => {
+      const oldAttachments = await txManager.find(Attachment, {
         select: {
           id: true,
           filePath: true,
@@ -67,7 +70,7 @@ export class AttachmentsService {
         },
       });
 
-      const attachment = manager.create(Attachment, {
+      const attachment = txManager.create(Attachment, {
         id,
         attachableId: params.attachableId,
         attachableType: params.attachableType,
@@ -78,10 +81,10 @@ export class AttachmentsService {
         fileSize: params.file.size,
       });
 
-      const savedAttachment = await manager.save(Attachment, attachment);
+      const savedAttachment = await txManager.save(Attachment, attachment);
 
       if (oldAttachments.length > 0) {
-        await manager.delete(
+        await txManager.delete(
           Attachment,
           oldAttachments.map((item) => item.id),
         );
@@ -91,6 +94,13 @@ export class AttachmentsService {
         attachment: savedAttachment,
         oldFilePaths: oldAttachments.map((item) => item.filePath),
       };
+    };
+
+    try {
+      if (manager?.queryRunner?.isTransactionActive) {
+        return await executeDbReplace(manager);
+      }
+      return await this.dataSource.transaction(executeDbReplace);
     } catch (error) {
       await this.deleteFilesSafely([relativePath]);
       throw error;

@@ -1,7 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { I18nService } from 'nestjs-i18n';
+import { DataSource } from 'typeorm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AttachmentsService } from '../attachment/attachment.service.js';
 import { AuthService } from '../auth/auth.service.js';
@@ -11,7 +11,7 @@ import { UsersService } from './users.service.js';
 
 describe('UsersService', () => {
   let service: UsersService;
-  let userRepository: any;
+  let dataSource: any;
   let attachmentsService: any;
   let authService: any;
   let redisService: any;
@@ -34,10 +34,8 @@ describe('UsersService', () => {
       save: vi.fn(async (_entity, user) => ({ ...user })),
     };
 
-    userRepository = {
-      manager: {
-        transaction: vi.fn(async (cb) => cb(mockManager)),
-      },
+    dataSource = {
+      transaction: vi.fn(async (cb) => cb(mockManager)),
     };
 
     attachmentsService = {
@@ -67,8 +65,8 @@ describe('UsersService', () => {
       providers: [
         UsersService,
         {
-          provide: getRepositoryToken(User),
-          useValue: userRepository,
+          provide: DataSource,
+          useValue: dataSource,
         },
         {
           provide: AttachmentsService,
