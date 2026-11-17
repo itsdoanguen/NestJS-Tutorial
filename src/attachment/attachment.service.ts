@@ -57,6 +57,10 @@ export class AttachmentsService {
 
     try {
       const oldAttachments = await manager.find(Attachment, {
+        select: {
+          id: true,
+          filePath: true,
+        },
         where: {
           attachableType: params.attachableType,
           attachableId: params.attachableId,
@@ -98,6 +102,14 @@ export class AttachmentsService {
     currentUser: User,
   ): Promise<StreamableFile> {
     const attachment = await this.attachmentRepository.findOne({
+      select: {
+        attachableId: true,
+        attachableType: true,
+        fileName: true,
+        filePath: true,
+        fileType: true,
+        fileSize: true,
+      },
       where: { id },
     });
 

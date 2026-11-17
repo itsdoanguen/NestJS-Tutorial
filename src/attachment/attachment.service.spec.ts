@@ -127,6 +127,16 @@ describe('AttachmentsService', () => {
       expect(result.oldFilePaths).toEqual([
         path.join(AVATAR_SUBDIR, 'old-id.png'),
       ]);
+      expect(manager.find).toHaveBeenCalledWith(Attachment, {
+        select: {
+          id: true,
+          filePath: true,
+        },
+        where: {
+          attachableType: ATTACHABLE_TYPE.USER,
+          attachableId: '1',
+        },
+      });
       expect(manager.delete).toHaveBeenCalledWith(Attachment, ['old-id']);
 
       const writtenPath = path.join(tempUploadDir, result.attachment.filePath);
