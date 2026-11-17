@@ -1,0 +1,6 @@
+{
+  "INVALID_FILE_TYPE": "Chỉ cho phép tải lên tệp ảnh định dạng JPEG, PNG hoặc WebP.",
+  "FILE_TOO_LARGE": "Kích thước tệp tải lên vượt quá giới hạn cho phép.",
+  "ATTACHMENT_NOT_FOUND": "Không tìm thấy tệp đính kèm.",
+  "ATTACHMENT_FORBIDDEN": "Bạn không có quyền truy cập tệp đính kèm này."
+}

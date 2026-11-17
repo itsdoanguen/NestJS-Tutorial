@@ -1,0 +1,2 @@
+export const MYSQL_ER_DUP_ENTRY = 'ER_DUP_ENTRY';
+export const MYSQL_DUP_ENTRY_ERRNO = 1062;

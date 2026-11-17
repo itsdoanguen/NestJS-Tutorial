@@ -1,0 +1,6 @@
+{
+  "INVALID_FILE_TYPE": "Only JPEG, PNG, and WebP image files are allowed.",
+  "FILE_TOO_LARGE": "Uploaded file exceeds the maximum allowed size.",
+  "ATTACHMENT_NOT_FOUND": "Attachment not found.",
+  "ATTACHMENT_FORBIDDEN": "You do not have permission to access this attachment."
+}

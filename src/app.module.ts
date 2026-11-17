@@ -14,10 +14,15 @@ import * as path from 'path';
 import Joi from 'joi';
 import { RedisModule } from './redis/redis.module.js';
 import { AuthModule } from './auth/auth.module.js';
-
-const DEFAULT_APP_PORT = 3000;
-const DEFAULT_MYSQL_PORT = 3306;
-const DEFAULT_REDIS_PORT = 6379;
+import {
+  DEFAULT_APP_PORT,
+  DEFAULT_MYSQL_PORT,
+  DEFAULT_REDIS_PORT,
+  DEFAULT_UPLOAD_MAX_FILE_SIZE,
+} from './common/constants/app.constants.js';
+import { AttachmentsModule } from './attachment/attachment.module.js';
+import { ProfilesModule } from './profiles/profiles.module.js';
+import { UsersModule } from './users/users.module.js';
 
 @Module({
   imports: [
@@ -43,6 +48,12 @@ const DEFAULT_REDIS_PORT = 6379;
 
         JWT_SECRET: Joi.string().required(),
         JWT_EXPIRES_IN: Joi.string().default('1d'),
+
+        UPLOAD_DIR: Joi.string().required(),
+        UPLOAD_MAX_FILE_SIZE: Joi.number()
+          .integer()
+          .positive()
+          .default(DEFAULT_UPLOAD_MAX_FILE_SIZE),
       }).options({
         allowUnknown: true,
         abortEarly: true,
@@ -79,6 +90,9 @@ const DEFAULT_REDIS_PORT = 6379;
     }),
     RedisModule,
     AuthModule,
+    AttachmentsModule,
+    UsersModule,
+    ProfilesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
