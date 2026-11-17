@@ -27,7 +27,6 @@ import {
   WEBP_RIFF_SIGNATURE,
 } from './constants/attachment.constants.js';
 import type {
-  AttachmentStreamResult,
   ReplaceAttachmentParams,
   ReplaceAttachmentResult,
 } from './interfaces/attachment-upload.interface.js';
@@ -97,7 +96,7 @@ export class AttachmentsService {
   async getAttachmentStream(
     id: string,
     currentUser: User,
-  ): Promise<AttachmentStreamResult> {
+  ): Promise<StreamableFile> {
     const attachment = await this.attachmentRepository.findOne({
       where: { id },
     });
@@ -127,12 +126,11 @@ export class AttachmentsService {
       });
     }
 
-    return {
-      stream: new StreamableFile(createReadStream(safePath)),
-      fileName: attachment.fileName,
-      fileType: attachment.fileType,
-      fileSize: attachment.fileSize,
-    };
+    return new StreamableFile(createReadStream(safePath), {
+      type: attachment.fileType,
+      disposition: `inline; filename="${attachment.fileName}"`,
+      length: attachment.fileSize,
+    });
   }
 
   async deleteFilesSafely(relativePaths: string[]): Promise<void> {

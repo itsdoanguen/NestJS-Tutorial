@@ -4,7 +4,6 @@ import {
   Header,
   Param,
   ParseUUIDPipe,
-  Res,
   StreamableFile,
   UseGuards,
 } from '@nestjs/common';
@@ -15,16 +14,10 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import type { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { User } from '../database/entities/user.entity.js';
 import { AttachmentsService } from './attachment.service.js';
-import {
-  HEADER_CONTENT_DISPOSITION,
-  HEADER_CONTENT_LENGTH,
-  HEADER_CONTENT_TYPE,
-} from './constants/attachment.constants.js';
 
 @ApiTags('Attachments')
 @Controller('api/attachments')
@@ -49,20 +42,7 @@ export class AttachmentsController {
   async getAttachment(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @CurrentUser() currentUser: User,
-    @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const result = await this.attachmentsService.getAttachmentStream(
-      id,
-      currentUser,
-    );
-
-    res.setHeader(HEADER_CONTENT_TYPE, result.fileType);
-    res.setHeader(HEADER_CONTENT_LENGTH, String(result.fileSize));
-    res.setHeader(
-      HEADER_CONTENT_DISPOSITION,
-      `inline; filename="${result.fileName}"`,
-    );
-
-    return result.stream;
+    return this.attachmentsService.getAttachmentStream(id, currentUser);
   }
 }

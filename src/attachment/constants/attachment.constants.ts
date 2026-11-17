@@ -25,7 +25,3 @@ export const ALLOWED_IMAGE_MIME_TYPES = Object.keys(MIME_TO_EXTENSION);
 
 export const WEBP_RIFF_SIGNATURE = 'RIFF';
 export const WEBP_FORMAT_SIGNATURE = 'WEBP';
-
-export const HEADER_CONTENT_TYPE = 'Content-Type';
-export const HEADER_CONTENT_LENGTH = 'Content-Length';
-export const HEADER_CONTENT_DISPOSITION = 'Content-Disposition';

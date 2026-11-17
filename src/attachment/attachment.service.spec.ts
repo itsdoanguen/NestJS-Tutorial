@@ -223,9 +223,13 @@ describe('AttachmentsService', () => {
         otherUser,
       );
 
-      expect(result.stream).toBeInstanceOf(StreamableFile);
-      expect(result.fileType).toBe('image/png');
-      result.stream.getStream().destroy();
+      expect(result).toBeInstanceOf(StreamableFile);
+      expect(result.getHeaders()).toEqual({
+        type: 'image/png',
+        disposition: 'inline; filename="avatar.png"',
+        length: PNG_BUFFER.length,
+      });
+      result.getStream().destroy();
     });
 
     it('should throw ForbiddenException when non-owner tries to access non-User attachment', async () => {
