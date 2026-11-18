@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -23,6 +25,7 @@ import { ArticlesService } from './articles.service.js';
 import { CreateArticleDto } from './dto/create-article.dto.js';
 import { FeedArticlesQueryDto } from './dto/feed-articles-query.dto.js';
 import { ListArticlesQueryDto } from './dto/list-articles-query.dto.js';
+import { UpdateArticleDto } from './dto/update-article.dto.js';
 import type {
   ArticleResponse,
   ArticlesListResponse,
@@ -86,5 +89,68 @@ export class ArticlesController {
     @CurrentUser() currentUser?: User,
   ): Promise<{ article: ArticleResponse }> {
     return this.articlesService.getArticle(slug, currentUser?.id);
+  }
+
+  @Put(':slug')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update an article by slug' })
+  @ApiResponse({ status: 200, description: 'Article updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Article not found' })
+  async updateArticle(
+    @Param('slug') slug: string,
+    @CurrentUser() currentUser: User,
+    @Body() dto: UpdateArticleDto,
+  ): Promise<{ article: ArticleResponse }> {
+    return this.articlesService.updateArticle(slug, currentUser, dto);
+  }
+
+  @Delete(':slug')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete an article by slug' })
+  @ApiResponse({ status: 204, description: 'Article deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Article not found' })
+  async deleteArticle(
+    @Param('slug') slug: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<void> {
+    return this.articlesService.deleteArticle(slug, currentUser);
+  }
+
+  @Post(':slug/favorite')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Favorite an article' })
+  @ApiResponse({ status: 200, description: 'Article favorited successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Article not found' })
+  async favoriteArticle(
+    @Param('slug') slug: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<{ article: ArticleResponse }> {
+    return this.articlesService.favoriteArticle(slug, currentUser.id);
+  }
+
+  @Delete(':slug/favorite')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Unfavorite an article' })
+  @ApiResponse({ status: 200, description: 'Article unfavorited successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Article not found' })
+  async unfavoriteArticle(
+    @Param('slug') slug: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<{ article: ArticleResponse }> {
+    return this.articlesService.unfavoriteArticle(slug, currentUser.id);
   }
 }

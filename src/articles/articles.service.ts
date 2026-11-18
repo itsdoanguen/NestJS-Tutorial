@@ -1,7 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { I18nService } from 'nestjs-i18n';
 import { DataSource, In, Repository } from 'typeorm';
+import {
+  MYSQL_DUP_ENTRY_ERRNO,
+  MYSQL_ER_DUP_ENTRY,
+} from '../common/constants/database.constants.js';
 import { ArticleFavorite } from '../database/entities/article-favorite.entity.js';
 import { ArticleTag } from '../database/entities/article-tag.entity.js';
 import { Article } from '../database/entities/article.entity.js';
@@ -15,6 +24,7 @@ import {
 import { CreateArticleDto } from './dto/create-article.dto.js';
 import { FeedArticlesQueryDto } from './dto/feed-articles-query.dto.js';
 import { ListArticlesQueryDto } from './dto/list-articles-query.dto.js';
+import { UpdateArticleDto } from './dto/update-article.dto.js';
 import {
   buildArticleResponse,
   generateArticleSlug,
@@ -206,6 +216,88 @@ export class ArticlesService {
     const article = await this.findArticleBySlugOrFail(slug);
     const [hydrated] = await this.hydrateArticles([article], currentUserId);
     return { article: hydrated };
+  }
+
+  async updateArticle(
+    slug: string,
+    currentUser: User,
+    dto: UpdateArticleDto,
+  ): Promise<{ article: ArticleResponse }> {
+    const article = await this.findArticleBySlugOrFail(slug);
+    this.assertArticleOwner(article, currentUser.id);
+
+    if (dto.title !== undefined && dto.title !== article.title) {
+      article.title = dto.title;
+      article.slug = generateArticleSlug(dto.title);
+    }
+    if (dto.description !== undefined) {
+      article.description = dto.description;
+    }
+    if (dto.body !== undefined) {
+      article.body = dto.body;
+    }
+
+    const updated = await this.articleRepository.save(article);
+    const [hydrated] = await this.hydrateArticles([updated], currentUser.id);
+    return { article: hydrated };
+  }
+
+  async deleteArticle(slug: string, currentUser: User): Promise<void> {
+    const article = await this.findArticleBySlugOrFail(slug);
+    this.assertArticleOwner(article, currentUser.id);
+
+    await this.articleRepository.delete({ id: article.id });
+  }
+
+  async favoriteArticle(
+    slug: string,
+    currentUserId: number,
+  ): Promise<{ article: ArticleResponse }> {
+    const article = await this.findArticleBySlugOrFail(slug);
+
+    try {
+      const favorite = this.articleFavoriteRepository.create({
+        userId: currentUserId,
+        articleId: article.id,
+      });
+      await this.articleFavoriteRepository.save(favorite);
+    } catch (error: unknown) {
+      const dbError = error as { code?: string; errno?: number };
+      if (
+        dbError?.code !== MYSQL_ER_DUP_ENTRY &&
+        dbError?.errno !== MYSQL_DUP_ENTRY_ERRNO
+      ) {
+        throw new InternalServerErrorException({
+          message: this.i18n.t('auth.SERVICE_UNAVAILABLE'),
+        });
+      }
+    }
+
+    const [hydrated] = await this.hydrateArticles([article], currentUserId);
+    return { article: hydrated };
+  }
+
+  async unfavoriteArticle(
+    slug: string,
+    currentUserId: number,
+  ): Promise<{ article: ArticleResponse }> {
+    const article = await this.findArticleBySlugOrFail(slug);
+
+    await this.articleFavoriteRepository.delete({
+      userId: currentUserId,
+      articleId: article.id,
+    });
+
+    const [hydrated] = await this.hydrateArticles([article], currentUserId);
+    return { article: hydrated };
+  }
+
+  private assertArticleOwner(article: Article, currentUserId: number): void {
+    if (article.authorId !== currentUserId) {
+      throw new ForbiddenException({
+        message: this.i18n.t('articles.ARTICLE_FORBIDDEN'),
+      });
+    }
   }
 
   private async findArticleBySlugOrFail(slug: string): Promise<Article> {
