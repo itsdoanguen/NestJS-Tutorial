@@ -1,4 +1,9 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { I18nService } from 'nestjs-i18n';
@@ -338,6 +343,33 @@ describe('ArticlesService', () => {
 
       expect(result.article.favorited).toBe(true);
       expect(result.article.favoritesCount).toBe(1);
+    });
+
+    it('should log original error and throw InternalServerErrorException with articles.FAVORITE_FAILED on unexpected DB error', async () => {
+      articleRepository.createQueryBuilder.mockReturnValue(
+        createQueryBuilderMock({
+          getOne: vi.fn().mockResolvedValue({ ...sampleArticle }),
+        }),
+      );
+      const dbError = new Error('Connection lost');
+      articleFavoriteRepository.save.mockRejectedValue(dbError);
+      const loggerErrorSpy = vi
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => {});
+
+      await expect(
+        service.favoriteArticle(sampleArticle.slug, otherUser.id),
+      ).rejects.toThrow(
+        new InternalServerErrorException({
+          message: 'articles.FAVORITE_FAILED',
+        }),
+      );
+
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        `Failed to favorite article (slug=${sampleArticle.slug}, userId=${otherUser.id})`,
+        dbError.stack,
+      );
+      loggerErrorSpy.mockRestore();
     });
 
     it('should unfavorite article and return favorited=false', async () => {

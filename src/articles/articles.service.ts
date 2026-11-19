@@ -2,6 +2,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -37,6 +38,8 @@ import type {
 
 @Injectable()
 export class ArticlesService {
+  private readonly logger = new Logger(ArticlesService.name);
+
   constructor(
     @InjectRepository(Article)
     private readonly articleRepository: Repository<Article>,
@@ -267,8 +270,12 @@ export class ArticlesService {
         dbError?.code !== MYSQL_ER_DUP_ENTRY &&
         dbError?.errno !== MYSQL_DUP_ENTRY_ERRNO
       ) {
+        this.logger.error(
+          `Failed to favorite article (slug=${slug}, userId=${currentUserId})`,
+          error instanceof Error ? error.stack : String(error),
+        );
         throw new InternalServerErrorException({
-          message: this.i18n.t('auth.SERVICE_UNAVAILABLE'),
+          message: this.i18n.t('articles.FAVORITE_FAILED'),
         });
       }
     }
