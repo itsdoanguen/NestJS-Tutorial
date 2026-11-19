@@ -8,6 +8,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import {
+  BODY_MAX_LENGTH,
   DESCRIPTION_MAX_LENGTH,
   TAG_MAX_LENGTH,
   TITLE_MAX_LENGTH,
@@ -29,6 +30,7 @@ export class CreateArticleDto {
   @ApiProperty({ example: 'You have to believe' })
   @IsNotEmpty()
   @IsString()
+  @MaxLength(BODY_MAX_LENGTH)
   body: string;
 
   @ApiPropertyOptional({ example: ['reactjs', 'angularjs', 'dragons'] })

@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import {
+  BODY_MAX_LENGTH,
   DESCRIPTION_MAX_LENGTH,
   TITLE_MAX_LENGTH,
 } from '../constants/articles.constants.js';
@@ -24,5 +25,6 @@ export class UpdateArticleDto {
   @IsOptional()
   @IsNotEmpty()
   @IsString()
+  @MaxLength(BODY_MAX_LENGTH)
   body?: string;
 }

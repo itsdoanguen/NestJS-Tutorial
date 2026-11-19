@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
+import { BODY_MAX_LENGTH } from '../src/articles/constants/articles.constants.js';
 import { ArticleFavorite } from '../src/database/entities/article-favorite.entity.js';
 import { ArticleTag } from '../src/database/entities/article-tag.entity.js';
 import { Article } from '../src/database/entities/article.entity.js';
@@ -144,6 +145,37 @@ describe('Articles (e2e)', () => {
         .expect(201);
 
       expect(res2.body.article.slug).not.toBe(res1.body.article.slug);
+    });
+
+    it('should return 400 when body exceeds BODY_MAX_LENGTH on create and update', async () => {
+      const token = await registerUser('maxlen@example.com', 'maxlen');
+      const oversizedBody = 'a'.repeat(BODY_MAX_LENGTH + 1);
+
+      await request(app.getHttpServer())
+        .post('/api/articles')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          title: 'Too long body',
+          description: 'Desc',
+          body: oversizedBody,
+        })
+        .expect(400);
+
+      const created = await request(app.getHttpServer())
+        .post('/api/articles')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          title: 'Valid article',
+          description: 'Desc',
+          body: 'Valid body',
+        })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .put(`/api/articles/${created.body.article.slug}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ body: oversizedBody })
+        .expect(400);
     });
   });
 
