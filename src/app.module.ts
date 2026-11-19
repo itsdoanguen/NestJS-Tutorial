@@ -21,6 +21,7 @@ import {
   DEFAULT_UPLOAD_MAX_FILE_SIZE,
 } from './common/constants/app.constants.js';
 import { AttachmentsModule } from './attachment/attachment.module.js';
+import { ArticlesModule } from './articles/articles.module.js';
 import { ProfilesModule } from './profiles/profiles.module.js';
 import { UsersModule } from './users/users.module.js';
 
@@ -93,6 +94,7 @@ import { UsersModule } from './users/users.module.js';
     AttachmentsModule,
     UsersModule,
     ProfilesModule,
+    ArticlesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

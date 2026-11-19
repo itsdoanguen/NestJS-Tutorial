@@ -44,6 +44,7 @@ async function bootstrap() {
     .addTag('Attachments')
     .addTag('Users')
     .addTag('Profiles')
+    .addTag('Articles')
     .build();
   const document = SwaggerModule.createDocument(app, config);
 
