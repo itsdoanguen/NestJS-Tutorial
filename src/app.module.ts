@@ -22,6 +22,7 @@ import {
 } from './common/constants/app.constants.js';
 import { AttachmentsModule } from './attachment/attachment.module.js';
 import { ArticlesModule } from './articles/articles.module.js';
+import { CommentsModule } from './comments/comments.module.js';
 import { ProfilesModule } from './profiles/profiles.module.js';
 import { UsersModule } from './users/users.module.js';
 
@@ -95,6 +96,7 @@ import { UsersModule } from './users/users.module.js';
     UsersModule,
     ProfilesModule,
     ArticlesModule,
+    CommentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

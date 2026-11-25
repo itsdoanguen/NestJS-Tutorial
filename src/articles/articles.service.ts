@@ -15,9 +15,9 @@ import {
 import { ArticleFavorite } from '../database/entities/article-favorite.entity.js';
 import { ArticleTag } from '../database/entities/article-tag.entity.js';
 import { Article } from '../database/entities/article.entity.js';
-import { Follow } from '../database/entities/follow.entity.js';
 import { Tag } from '../database/entities/tag.entity.js';
 import { User } from '../database/entities/user.entity.js';
+import { ProfilesService } from '../profiles/profiles.service.js';
 import {
   DEFAULT_ARTICLES_LIMIT,
   DEFAULT_ARTICLES_OFFSET,
@@ -47,8 +47,7 @@ export class ArticlesService {
     private readonly articleTagRepository: Repository<ArticleTag>,
     @InjectRepository(ArticleFavorite)
     private readonly articleFavoriteRepository: Repository<ArticleFavorite>,
-    @InjectRepository(Follow)
-    private readonly followRepository: Repository<Follow>,
+    private readonly profilesService: ProfilesService,
     private readonly dataSource: DataSource,
     private readonly i18n: I18nService,
   ) {}
@@ -184,12 +183,9 @@ export class ArticlesService {
     currentUserId: number,
     query: FeedArticlesQueryDto,
   ): Promise<ArticlesListResponse> {
-    const follows = await this.followRepository.find({
-      select: { followingId: true },
-      where: { followerId: currentUserId },
-    });
-
-    const followingIds = follows.map((item) => item.followingId);
+    const followingIds = Array.from(
+      await this.profilesService.getFollowedUserIds(currentUserId),
+    );
     if (followingIds.length === 0) {
       return { articles: [], articlesCount: 0 };
     }
@@ -299,6 +295,21 @@ export class ArticlesService {
     return { article: hydrated };
   }
 
+  async findArticleIdBySlugOrFail(slug: string): Promise<number> {
+    const article = await this.articleRepository.findOne({
+      select: { id: true },
+      where: { slug },
+    });
+
+    if (!article) {
+      throw new NotFoundException({
+        message: this.i18n.t('articles.ARTICLE_NOT_FOUND'),
+      });
+    }
+
+    return article.id;
+  }
+
   private assertArticleOwner(article: Article, currentUserId: number): void {
     if (article.authorId !== currentUserId) {
       throw new ForbiddenException({
@@ -333,12 +344,9 @@ export class ArticlesService {
     }
 
     const articleIds = articles.map((article) => article.id);
-    const authorIds = Array.from(
-      new Set(articles.map((article) => article.authorId)),
-    );
-    const targetAuthorIds = authorIds.filter((id) => id !== currentUserId);
+    const authorIds = articles.map((article) => article.authorId);
 
-    const [tagRows, favoriteCountRows, userFavoriteRows, followRows] =
+    const [tagRows, favoriteCountRows, userFavoriteRows, followedAuthorIds] =
       await Promise.all([
         this.articleTagRepository
           .createQueryBuilder('at')
@@ -363,15 +371,7 @@ export class ArticlesService {
               },
             })
           : Promise.resolve([]),
-        currentUserId && targetAuthorIds.length > 0
-          ? this.followRepository.find({
-              select: { followingId: true },
-              where: {
-                followerId: currentUserId,
-                followingId: In(targetAuthorIds),
-              },
-            })
-          : Promise.resolve([]),
+        this.profilesService.getFollowedUserIds(currentUserId, authorIds),
       ]);
 
     const tagsByArticleId = new Map<number, string[]>();
@@ -390,7 +390,6 @@ export class ArticlesService {
     const favoritedArticleIds = new Set(
       userFavoriteRows.map((row) => row.articleId),
     );
-    const followedAuthorIds = new Set(followRows.map((row) => row.followingId));
 
     return articles.map((article) =>
       buildArticleResponse(article, {
