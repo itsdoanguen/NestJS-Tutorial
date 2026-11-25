@@ -11,5 +11,10 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
     },
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.spec.ts', 'src/database/migrations/**', 'src/main.ts'],
+    },
   },
 });
