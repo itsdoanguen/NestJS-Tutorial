@@ -27,6 +27,7 @@ describe('ProfilesService', () => {
 
     followRepository = {
       exists: vi.fn(),
+      find: vi.fn(),
       create: vi.fn((data) => ({ ...data })),
       save: vi.fn(),
       delete: vi.fn(),
@@ -140,6 +141,46 @@ describe('ProfilesService', () => {
         followingId: 2,
       });
       expect(result.profile.following).toBe(false);
+    });
+  });
+
+  describe('getFollowedUserIds', () => {
+    it('should return empty set when followerId is omitted', async () => {
+      const result = await service.getFollowedUserIds(undefined, [1, 2]);
+
+      expect(result).toEqual(new Set());
+      expect(followRepository.find).not.toHaveBeenCalled();
+    });
+
+    it('should return empty set without querying when targetUserIds only contains self', async () => {
+      const result = await service.getFollowedUserIds(1, [1]);
+
+      expect(result).toEqual(new Set());
+      expect(followRepository.find).not.toHaveBeenCalled();
+    });
+
+    it('should query filtered targetUserIds and return Set of followed IDs', async () => {
+      followRepository.find.mockResolvedValue([{ followingId: 2 }]);
+
+      const result = await service.getFollowedUserIds(1, [1, 2, 3, 2]);
+
+      expect(followRepository.find).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(new Set([2]));
+    });
+
+    it('should query all followed users when targetUserIds is omitted', async () => {
+      followRepository.find.mockResolvedValue([
+        { followingId: 2 },
+        { followingId: 3 },
+      ]);
+
+      const result = await service.getFollowedUserIds(1);
+
+      expect(followRepository.find).toHaveBeenCalledWith({
+        select: { followingId: true },
+        where: { followerId: 1 },
+      });
+      expect(result).toEqual(new Set([2, 3]));
     });
   });
 });

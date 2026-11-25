@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { I18nService } from 'nestjs-i18n';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   MYSQL_DUP_ENTRY_ERRNO,
   MYSQL_ER_DUP_ENTRY,
@@ -89,6 +89,39 @@ export class ProfilesService {
     });
 
     return this.buildProfileResponse(targetUser, false);
+  }
+
+  async getFollowedUserIds(
+    followerId?: number,
+    targetUserIds?: number[],
+  ): Promise<Set<number>> {
+    if (!followerId) {
+      return new Set();
+    }
+
+    if (targetUserIds !== undefined) {
+      const filteredIds = Array.from(new Set(targetUserIds)).filter(
+        (id) => id !== followerId,
+      );
+      if (filteredIds.length === 0) {
+        return new Set();
+      }
+
+      const followRows = await this.followRepository.find({
+        select: { followingId: true },
+        where: {
+          followerId,
+          followingId: In(filteredIds),
+        },
+      });
+      return new Set(followRows.map((row) => row.followingId));
+    }
+
+    const followRows = await this.followRepository.find({
+      select: { followingId: true },
+      where: { followerId },
+    });
+    return new Set(followRows.map((row) => row.followingId));
   }
 
   private async findTargetUserByUsername(username: string): Promise<User> {

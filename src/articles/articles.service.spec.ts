@@ -12,8 +12,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ArticleFavorite } from '../database/entities/article-favorite.entity.js';
 import { ArticleTag } from '../database/entities/article-tag.entity.js';
 import { Article } from '../database/entities/article.entity.js';
-import { Follow } from '../database/entities/follow.entity.js';
 import { User } from '../database/entities/user.entity.js';
+import { ProfilesService } from '../profiles/profiles.service.js';
 import { ArticlesService } from './articles.service.js';
 
 describe('ArticlesService', () => {
@@ -21,7 +21,7 @@ describe('ArticlesService', () => {
   let articleRepository: any;
   let articleTagRepository: any;
   let articleFavoriteRepository: any;
-  let followRepository: any;
+  let profilesService: any;
   let dataSource: any;
   let mockManager: any;
 
@@ -99,6 +99,7 @@ describe('ArticlesService', () => {
     };
 
     articleRepository = {
+      findOne: vi.fn(),
       createQueryBuilder: vi.fn(),
       save: vi.fn(async (article) => article),
       delete: vi.fn().mockResolvedValue({ affected: 1 }),
@@ -124,8 +125,8 @@ describe('ArticlesService', () => {
       delete: vi.fn().mockResolvedValue({ affected: 1 }),
     };
 
-    followRepository = {
-      find: vi.fn().mockResolvedValue([]),
+    profilesService = {
+      getFollowedUserIds: vi.fn().mockResolvedValue(new Set()),
     };
 
     const i18nService = {
@@ -144,7 +145,7 @@ describe('ArticlesService', () => {
           provide: getRepositoryToken(ArticleFavorite),
           useValue: articleFavoriteRepository,
         },
-        { provide: getRepositoryToken(Follow), useValue: followRepository },
+        { provide: ProfilesService, useValue: profilesService },
         { provide: DataSource, useValue: dataSource },
         { provide: I18nService, useValue: i18nService },
       ],
@@ -204,7 +205,7 @@ describe('ArticlesService', () => {
         }),
       );
       articleFavoriteRepository.find.mockResolvedValue([{ articleId: 10 }]);
-      followRepository.find.mockResolvedValue([{ followingId: 1 }]);
+      profilesService.getFollowedUserIds.mockResolvedValue(new Set([1]));
 
       const result = await service.listArticles(
         { tag: 'nestjs', author: 'author1', limit: 10, offset: 0 },
@@ -227,7 +228,7 @@ describe('ArticlesService', () => {
 
   describe('feedArticles', () => {
     it('should return empty feed immediately when user follows nobody', async () => {
-      followRepository.find.mockResolvedValue([]);
+      profilesService.getFollowedUserIds.mockResolvedValue(new Set());
 
       const result = await service.feedArticles(otherUser.id, {
         limit: 20,
@@ -239,7 +240,7 @@ describe('ArticlesService', () => {
     });
 
     it('should return feed articles from followed authors', async () => {
-      followRepository.find.mockResolvedValue([{ followingId: 1 }]);
+      profilesService.getFollowedUserIds.mockResolvedValue(new Set([1]));
       const qb = createQueryBuilderMock({
         getManyAndCount: vi.fn().mockResolvedValue([[sampleArticle], 1]),
       });
@@ -264,6 +265,28 @@ describe('ArticlesService', () => {
       await expect(service.getArticle('missing-slug')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('findArticleIdBySlugOrFail', () => {
+    it('should return article id when slug exists', async () => {
+      articleRepository.findOne.mockResolvedValue({ id: 10 });
+
+      await expect(
+        service.findArticleIdBySlugOrFail(sampleArticle.slug),
+      ).resolves.toBe(10);
+      expect(articleRepository.findOne).toHaveBeenCalledWith({
+        select: { id: true },
+        where: { slug: sampleArticle.slug },
+      });
+    });
+
+    it('should throw NotFoundException when slug does not exist', async () => {
+      articleRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.findArticleIdBySlugOrFail('missing-slug'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

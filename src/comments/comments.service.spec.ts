@@ -3,17 +3,17 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { I18nService } from 'nestjs-i18n';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Article } from '../database/entities/article.entity.js';
+import { ArticlesService } from '../articles/articles.service.js';
 import { Comment } from '../database/entities/comment.entity.js';
-import { Follow } from '../database/entities/follow.entity.js';
 import { User } from '../database/entities/user.entity.js';
+import { ProfilesService } from '../profiles/profiles.service.js';
 import { CommentsService } from './comments.service.js';
 
 describe('CommentsService', () => {
   let service: CommentsService;
   let commentRepository: any;
-  let articleRepository: any;
-  let followRepository: any;
+  let articlesService: any;
+  let profilesService: any;
 
   const author = {
     id: 1,
@@ -29,10 +29,7 @@ describe('CommentsService', () => {
     image: null,
   } as User;
 
-  const sampleArticle = {
-    id: 10,
-    slug: 'how-to-train-your-dragon-1234abcd',
-  } as Article;
+  const sampleSlug = 'how-to-train-your-dragon-1234abcd';
 
   const sampleComment = {
     id: 100,
@@ -68,12 +65,12 @@ describe('CommentsService', () => {
       createQueryBuilder: vi.fn(),
     };
 
-    articleRepository = {
-      findOne: vi.fn(),
+    articlesService = {
+      findArticleIdBySlugOrFail: vi.fn().mockResolvedValue(10),
     };
 
-    followRepository = {
-      find: vi.fn().mockResolvedValue([]),
+    profilesService = {
+      getFollowedUserIds: vi.fn().mockResolvedValue(new Set()),
     };
 
     const i18nService = {
@@ -84,8 +81,8 @@ describe('CommentsService', () => {
       providers: [
         CommentsService,
         { provide: getRepositoryToken(Comment), useValue: commentRepository },
-        { provide: getRepositoryToken(Article), useValue: articleRepository },
-        { provide: getRepositoryToken(Follow), useValue: followRepository },
+        { provide: ArticlesService, useValue: articlesService },
+        { provide: ProfilesService, useValue: profilesService },
         { provide: I18nService, useValue: i18nService },
       ],
     }).compile();
@@ -95,25 +92,27 @@ describe('CommentsService', () => {
 
   describe('addComment', () => {
     it('should throw NotFoundException when article does not exist', async () => {
-      articleRepository.findOne.mockResolvedValue(null);
+      articlesService.findArticleIdBySlugOrFail.mockRejectedValue(
+        new NotFoundException('articles.ARTICLE_NOT_FOUND'),
+      );
 
       await expect(
         service.addComment('missing-slug', author, { body: 'Hello' }),
       ).rejects.toThrow(NotFoundException);
 
-      expect(articleRepository.findOne).toHaveBeenCalledWith({
-        select: { id: true },
-        where: { slug: 'missing-slug' },
-      });
+      expect(articlesService.findArticleIdBySlugOrFail).toHaveBeenCalledWith(
+        'missing-slug',
+      );
     });
 
     it('should create comment and return formatted CommentResponse', async () => {
-      articleRepository.findOne.mockResolvedValue(sampleArticle);
-
-      const result = await service.addComment(sampleArticle.slug, author, {
+      const result = await service.addComment(sampleSlug, author, {
         body: 'Great article!',
       });
 
+      expect(articlesService.findArticleIdBySlugOrFail).toHaveBeenCalledWith(
+        sampleSlug,
+      );
       expect(commentRepository.create).toHaveBeenCalledWith({
         body: 'Great article!',
         articleId: 10,
@@ -137,7 +136,9 @@ describe('CommentsService', () => {
 
   describe('getComments', () => {
     it('should throw NotFoundException when article does not exist', async () => {
-      articleRepository.findOne.mockResolvedValue(null);
+      articlesService.findArticleIdBySlugOrFail.mockRejectedValue(
+        new NotFoundException('articles.ARTICLE_NOT_FOUND'),
+      );
 
       await expect(service.getComments('missing-slug')).rejects.toThrow(
         NotFoundException,
@@ -145,22 +146,17 @@ describe('CommentsService', () => {
     });
 
     it('should return empty array when article has no comments without querying follows', async () => {
-      articleRepository.findOne.mockResolvedValue(sampleArticle);
       commentRepository.createQueryBuilder.mockReturnValue(
         createQueryBuilderMock({ getMany: vi.fn().mockResolvedValue([]) }),
       );
 
-      const result = await service.getComments(
-        sampleArticle.slug,
-        otherUser.id,
-      );
+      const result = await service.getComments(sampleSlug, otherUser.id);
 
       expect(result).toEqual({ comments: [] });
-      expect(followRepository.find).not.toHaveBeenCalled();
+      expect(profilesService.getFollowedUserIds).not.toHaveBeenCalled();
     });
 
-    it('should return comments with batch-hydrated author.following flag', async () => {
-      articleRepository.findOne.mockResolvedValue(sampleArticle);
+    it('should return comments with batch-hydrated author.following flag via ProfilesService', async () => {
       const comment2 = {
         ...sampleComment,
         id: 101,
@@ -173,14 +169,14 @@ describe('CommentsService', () => {
           getMany: vi.fn().mockResolvedValue([comment2, sampleComment]),
         }),
       );
-      followRepository.find.mockResolvedValue([{ followingId: 1 }]);
+      profilesService.getFollowedUserIds.mockResolvedValue(new Set([1]));
 
-      const result = await service.getComments(
-        sampleArticle.slug,
+      const result = await service.getComments(sampleSlug, otherUser.id);
+
+      expect(profilesService.getFollowedUserIds).toHaveBeenCalledWith(
         otherUser.id,
+        [2, 1],
       );
-
-      expect(followRepository.find).toHaveBeenCalledTimes(1);
       expect(result.comments).toHaveLength(2);
       expect(result.comments[0]).toMatchObject({
         id: 101,
@@ -195,23 +191,27 @@ describe('CommentsService', () => {
     });
 
     it('should set following=false for all comments when unauthenticated', async () => {
-      articleRepository.findOne.mockResolvedValue(sampleArticle);
       commentRepository.createQueryBuilder.mockReturnValue(
         createQueryBuilderMock({
           getMany: vi.fn().mockResolvedValue([sampleComment]),
         }),
       );
 
-      const result = await service.getComments(sampleArticle.slug);
+      const result = await service.getComments(sampleSlug);
 
-      expect(followRepository.find).not.toHaveBeenCalled();
+      expect(profilesService.getFollowedUserIds).toHaveBeenCalledWith(
+        undefined,
+        [1],
+      );
       expect(result.comments[0].author.following).toBe(false);
     });
   });
 
   describe('deleteComment', () => {
     it('should throw NotFoundException when article does not exist', async () => {
-      articleRepository.findOne.mockResolvedValue(null);
+      articlesService.findArticleIdBySlugOrFail.mockRejectedValue(
+        new NotFoundException('articles.ARTICLE_NOT_FOUND'),
+      );
 
       await expect(
         service.deleteComment('missing-slug', 100, author.id),
@@ -219,11 +219,10 @@ describe('CommentsService', () => {
     });
 
     it('should throw NotFoundException when comment does not exist on the article', async () => {
-      articleRepository.findOne.mockResolvedValue(sampleArticle);
       commentRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        service.deleteComment(sampleArticle.slug, 999, author.id),
+        service.deleteComment(sampleSlug, 999, author.id),
       ).rejects.toThrow(NotFoundException);
 
       expect(commentRepository.findOne).toHaveBeenCalledWith({
@@ -233,21 +232,19 @@ describe('CommentsService', () => {
     });
 
     it('should throw ForbiddenException when non-author tries to delete comment', async () => {
-      articleRepository.findOne.mockResolvedValue(sampleArticle);
       commentRepository.findOne.mockResolvedValue({ id: 100, authorId: 1 });
 
       await expect(
-        service.deleteComment(sampleArticle.slug, 100, otherUser.id),
+        service.deleteComment(sampleSlug, 100, otherUser.id),
       ).rejects.toThrow(ForbiddenException);
 
       expect(commentRepository.delete).not.toHaveBeenCalled();
     });
 
     it('should delete comment when requested by its author', async () => {
-      articleRepository.findOne.mockResolvedValue(sampleArticle);
       commentRepository.findOne.mockResolvedValue({ id: 100, authorId: 1 });
 
-      await service.deleteComment(sampleArticle.slug, 100, author.id);
+      await service.deleteComment(sampleSlug, 100, author.id);
 
       expect(commentRepository.delete).toHaveBeenCalledWith({
         id: 100,

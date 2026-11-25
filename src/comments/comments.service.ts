@@ -5,11 +5,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { I18nService } from 'nestjs-i18n';
-import { In, Repository } from 'typeorm';
-import { Article } from '../database/entities/article.entity.js';
+import { Repository } from 'typeorm';
+import { ArticlesService } from '../articles/articles.service.js';
 import { Comment } from '../database/entities/comment.entity.js';
-import { Follow } from '../database/entities/follow.entity.js';
 import { User } from '../database/entities/user.entity.js';
+import { ProfilesService } from '../profiles/profiles.service.js';
 import { CreateCommentDto } from './dto/create-comment.dto.js';
 import { buildCommentResponse } from './helpers/comment.helper.js';
 import type { CommentResponse } from './interfaces/comment-response.interface.js';
@@ -19,10 +19,8 @@ export class CommentsService {
   constructor(
     @InjectRepository(Comment)
     private readonly commentRepository: Repository<Comment>,
-    @InjectRepository(Article)
-    private readonly articleRepository: Repository<Article>,
-    @InjectRepository(Follow)
-    private readonly followRepository: Repository<Follow>,
+    private readonly articlesService: ArticlesService,
+    private readonly profilesService: ProfilesService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -31,11 +29,12 @@ export class CommentsService {
     currentUser: User,
     dto: CreateCommentDto,
   ): Promise<{ comment: CommentResponse }> {
-    const article = await this.findArticleBySlugOrFail(slug);
+    const articleId =
+      await this.articlesService.findArticleIdBySlugOrFail(slug);
 
     const comment = this.commentRepository.create({
       body: dto.body,
-      articleId: article.id,
+      articleId,
       authorId: currentUser.id,
     });
 
@@ -51,13 +50,14 @@ export class CommentsService {
     slug: string,
     currentUserId?: number,
   ): Promise<{ comments: CommentResponse[] }> {
-    const article = await this.findArticleBySlugOrFail(slug);
+    const articleId =
+      await this.articlesService.findArticleIdBySlugOrFail(slug);
 
     const comments = await this.commentRepository
       .createQueryBuilder('comment')
       .leftJoin('comment.author', 'author')
       .addSelect(['author.id', 'author.username', 'author.bio', 'author.image'])
-      .where('comment.articleId = :articleId', { articleId: article.id })
+      .where('comment.articleId = :articleId', { articleId })
       .orderBy('comment.createdAt', 'DESC')
       .addOrderBy('comment.id', 'DESC')
       .getMany();
@@ -66,22 +66,10 @@ export class CommentsService {
       return { comments: [] };
     }
 
-    const targetAuthorIds = Array.from(
-      new Set(comments.map((comment) => comment.authorId)),
-    ).filter((authorId) => authorId !== currentUserId);
-
-    const followRows =
-      currentUserId && targetAuthorIds.length > 0
-        ? await this.followRepository.find({
-            select: { followingId: true },
-            where: {
-              followerId: currentUserId,
-              followingId: In(targetAuthorIds),
-            },
-          })
-        : [];
-
-    const followedAuthorIds = new Set(followRows.map((row) => row.followingId));
+    const followedAuthorIds = await this.profilesService.getFollowedUserIds(
+      currentUserId,
+      comments.map((comment) => comment.authorId),
+    );
 
     return {
       comments: comments.map((comment) =>
@@ -95,11 +83,12 @@ export class CommentsService {
     commentId: number,
     currentUserId: number,
   ): Promise<void> {
-    const article = await this.findArticleBySlugOrFail(slug);
+    const articleId =
+      await this.articlesService.findArticleIdBySlugOrFail(slug);
 
     const comment = await this.commentRepository.findOne({
       select: { id: true, authorId: true },
-      where: { id: commentId, articleId: article.id },
+      where: { id: commentId, articleId },
     });
 
     if (!comment) {
@@ -116,22 +105,7 @@ export class CommentsService {
 
     await this.commentRepository.delete({
       id: comment.id,
-      articleId: article.id,
+      articleId,
     });
-  }
-
-  private async findArticleBySlugOrFail(slug: string): Promise<Article> {
-    const article = await this.articleRepository.findOne({
-      select: { id: true },
-      where: { slug },
-    });
-
-    if (!article) {
-      throw new NotFoundException({
-        message: this.i18n.t('articles.ARTICLE_NOT_FOUND'),
-      });
-    }
-
-    return article;
   }
 }
