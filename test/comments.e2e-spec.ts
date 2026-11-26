@@ -211,7 +211,7 @@ describe('Comments (e2e)', () => {
         .expect(404);
     });
 
-    it('should return 403 when a user tries to delete another user comment', async () => {
+    it('should return 403 and keep comment in DB when a user tries to delete another user comment', async () => {
       const author = await seeder.createFakeUser();
       const commenter = await seeder.createFakeUser();
       const { article } = await seeder.createFakeArticle(author.user);
@@ -221,6 +221,11 @@ describe('Comments (e2e)', () => {
         .delete(`/api/articles/${article.slug}/comments/${comment.id}`)
         .set('Authorization', `Bearer ${author.token}`)
         .expect(403);
+
+      const stillExists = await ctx.dataSource
+        .getRepository(Comment)
+        .findOneBy({ id: comment.id });
+      expect(stillExists).not.toBeNull();
     });
 
     it('should delete own comment and return 204', async () => {

@@ -121,11 +121,13 @@ describe('Profiles (e2e)', () => {
         .expect(400);
     });
 
-    it('should return 401 when following without token and 404 for unknown target', async () => {
+    it('should return 401 when following without token', async () => {
       await request(ctx.app.getHttpServer())
         .post(`/api/profiles/${target.user.username}/follow`)
         .expect(401);
+    });
 
+    it('should return 404 when following a nonexistent target user', async () => {
       await request(ctx.app.getHttpServer())
         .post('/api/profiles/missing_user/follow')
         .set('Authorization', `Bearer ${follower.token}`)
