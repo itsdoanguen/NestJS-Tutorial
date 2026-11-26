@@ -8,6 +8,7 @@ import {
   cleanupE2eAfterEach,
   closeE2eApp,
   createE2eTestApp,
+  resolveTestStorageDir,
   type E2eTestContext,
 } from './helpers/e2e-database.helper.js';
 import { E2eFakeDataFactory } from './helpers/e2e-fake-data.helper.js';
@@ -29,10 +30,7 @@ describe('Attachments (e2e)', () => {
   beforeAll(async () => {
     ctx = await createE2eTestApp();
     seeder = new E2eFakeDataFactory(ctx.app, ctx.dataSource);
-    storageTestDir = path.resolve(
-      process.cwd(),
-      process.env.UPLOAD_DIR || 'storage-test',
-    );
+    storageTestDir = resolveTestStorageDir(ctx.app);
   });
 
   afterEach(async () => {
@@ -60,13 +58,17 @@ describe('Attachments (e2e)', () => {
       .expect(401);
   });
 
-  it('should return 400 on invalid UUID and 404 when UUID does not exist', async () => {
+  it('should return 400 when attachment id is not a valid UUID', async () => {
     const userSeed = await seeder.createFakeUser();
 
     await request(ctx.app.getHttpServer())
       .get('/api/attachments/not-a-valid-uuid')
       .set('Authorization', `Bearer ${userSeed.token}`)
       .expect(400);
+  });
+
+  it('should return 404 when attachment UUID does not exist', async () => {
+    const userSeed = await seeder.createFakeUser();
 
     await request(ctx.app.getHttpServer())
       .get(`/api/attachments/${crypto.randomUUID()}`)
@@ -134,10 +136,36 @@ describe('Attachments (e2e)', () => {
       .get(`/api/attachments/${privateId}`)
       .set('Authorization', `Bearer ${other.token}`)
       .expect(403);
+  });
 
-    await request(ctx.app.getHttpServer())
+  it('should allow owner to stream their own non-User private attachment', async () => {
+    const owner = await seeder.createFakeUser();
+
+    const privateId = crypto.randomUUID();
+    const relPath = path.join('posts', `${privateId}.png`);
+    const absPath = path.join(storageTestDir, relPath);
+    await fs.mkdir(path.dirname(absPath), { recursive: true });
+    await fs.writeFile(absPath, VALID_PNG_BUFFER);
+
+    const attachmentRepo = ctx.dataSource.getRepository(Attachment);
+    await attachmentRepo.save(
+      attachmentRepo.create({
+        id: privateId,
+        attachableId: String(owner.user.id),
+        attachableType: ATTACHABLE_TYPE.POST,
+        url: `/api/attachments/${privateId}`,
+        fileName: 'private.png',
+        filePath: relPath,
+        fileType: 'image/png',
+        fileSize: VALID_PNG_BUFFER.length,
+      }),
+    );
+
+    const res = await request(ctx.app.getHttpServer())
       .get(`/api/attachments/${privateId}`)
       .set('Authorization', `Bearer ${owner.token}`)
       .expect(200);
+
+    expect(Buffer.from(res.body)).toEqual(VALID_PNG_BUFFER);
   });
 });

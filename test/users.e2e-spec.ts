@@ -5,6 +5,7 @@ import {
   cleanupE2eAfterEach,
   closeE2eApp,
   createE2eTestApp,
+  resolveTestStorageDir,
   type E2eTestContext,
 } from './helpers/e2e-database.helper.js';
 import { E2eFakeDataFactory } from './helpers/e2e-fake-data.helper.js';
@@ -26,10 +27,7 @@ describe('Users (e2e)', () => {
   beforeAll(async () => {
     ctx = await createE2eTestApp();
     seeder = new E2eFakeDataFactory(ctx.app, ctx.dataSource);
-    storageTestDir = path.resolve(
-      process.cwd(),
-      process.env.UPLOAD_DIR || 'storage-test',
-    );
+    storageTestDir = resolveTestStorageDir(ctx.app);
   });
 
   afterEach(async () => {

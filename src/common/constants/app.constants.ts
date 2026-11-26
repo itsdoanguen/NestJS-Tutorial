@@ -1,4 +1,5 @@
 export const DEFAULT_APP_PORT = 3000;
 export const DEFAULT_MYSQL_PORT = 3306;
 export const DEFAULT_REDIS_PORT = 6379;
+export const DEFAULT_REDIS_DB = 0;
 export const DEFAULT_UPLOAD_MAX_FILE_SIZE = 2 * 1024 * 1024;

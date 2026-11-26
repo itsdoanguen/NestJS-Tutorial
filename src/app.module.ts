@@ -17,6 +17,7 @@ import { AuthModule } from './auth/auth.module.js';
 import {
   DEFAULT_APP_PORT,
   DEFAULT_MYSQL_PORT,
+  DEFAULT_REDIS_DB,
   DEFAULT_REDIS_PORT,
   DEFAULT_UPLOAD_MAX_FILE_SIZE,
 } from './common/constants/app.constants.js';
@@ -47,6 +48,7 @@ import { UsersModule } from './users/users.module.js';
         REDIS_HOST: Joi.string().required(),
         REDIS_PORT: Joi.number().default(DEFAULT_REDIS_PORT),
         REDIS_PASSWORD: Joi.string().optional().allow(''),
+        REDIS_DB: Joi.number().integer().min(0).default(DEFAULT_REDIS_DB),
 
         JWT_SECRET: Joi.string().required(),
         JWT_EXPIRES_IN: Joi.string().default('1d'),

@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import type { Server } from 'http';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
+import { configureApp } from './../src/app.setup.js';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<Server>;
@@ -13,6 +14,7 @@ describe('AppController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureApp(app);
     await app.init();
   });
 
