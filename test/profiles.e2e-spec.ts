@@ -1,85 +1,42 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { DataSource } from 'typeorm';
-import { AppModule } from '../src/app.module.js';
-import { Attachment } from '../src/database/entities/attachment.entity.js';
-import { Follow } from '../src/database/entities/follow.entity.js';
-import { User } from '../src/database/entities/user.entity.js';
+import {
+  cleanupE2eAfterEach,
+  closeE2eApp,
+  createE2eTestApp,
+  type E2eTestContext,
+} from './helpers/e2e-database.helper.js';
+import {
+  E2eFakeDataFactory,
+  type FakeUserSeed,
+} from './helpers/e2e-fake-data.helper.js';
 
 describe('Profiles (e2e)', () => {
-  let app: INestApplication<App>;
-  let dataSource: DataSource;
-
-  const clearTestTables = async () => {
-    await dataSource
-      .getRepository(Follow)
-      .createQueryBuilder()
-      .delete()
-      .execute();
-    await dataSource
-      .getRepository(Attachment)
-      .createQueryBuilder()
-      .delete()
-      .execute();
-    await dataSource
-      .getRepository(User)
-      .createQueryBuilder()
-      .delete()
-      .execute();
-  };
+  let ctx: E2eTestContext;
+  let seeder: E2eFakeDataFactory;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      }),
-    );
-    await app.init();
-
-    dataSource = app.get(DataSource);
-
-    const dbName = dataSource.options.database;
-    if (dbName !== 'nest_tutorial_test') {
-      throw new Error(
-        `CRITICAL: E2E tests are connecting to '${dbName}' instead of 'nest_tutorial_test'. Aborting.`,
-      );
-    }
+    ctx = await createE2eTestApp();
+    seeder = new E2eFakeDataFactory(ctx.app, ctx.dataSource);
   });
 
-  beforeEach(async () => {
-    await clearTestTables();
+  afterEach(async () => {
+    await cleanupE2eAfterEach(ctx.dataSource, ctx.redisClient);
   });
 
   afterAll(async () => {
-    if (dataSource?.isInitialized) {
-      await clearTestTables();
-    }
-    await app.close();
+    await closeE2eApp(ctx);
   });
-
-  const registerUser = async (email: string, username: string) => {
-    const res = await request(app.getHttpServer())
-      .post('/api/users')
-      .send({ email, username, password: 'password123' })
-      .expect(201);
-    return res.body.user.token as string;
-  };
 
   describe('GET /api/profiles/:username', () => {
     it('should return profile with following=false when unauthenticated', async () => {
-      await registerUser('jake@example.com', 'jake');
+      const target = await seeder.createFakeUser({
+        username: 'jake',
+        bio: null,
+        image: null,
+      });
 
-      const res = await request(app.getHttpServer())
-        .get('/api/profiles/jake')
+      const res = await request(ctx.app.getHttpServer())
+        .get(`/api/profiles/${target.user.username}`)
         .expect(200);
 
       expect(res.body.profile).toEqual({
@@ -91,33 +48,38 @@ describe('Profiles (e2e)', () => {
     });
 
     it('should return 401 when an invalid Bearer token is supplied', async () => {
-      await registerUser('jake2@example.com', 'jake2');
+      const target = await seeder.createFakeUser();
 
-      await request(app.getHttpServer())
-        .get('/api/profiles/jake2')
+      await request(ctx.app.getHttpServer())
+        .get(`/api/profiles/${target.user.username}`)
         .set('Authorization', 'Bearer invalid.jwt.token')
         .expect(401);
     });
 
     it('should return 404 when profile does not exist', async () => {
-      await request(app.getHttpServer())
+      await request(ctx.app.getHttpServer())
         .get('/api/profiles/nonexistent_user')
         .expect(404);
     });
   });
 
   describe('POST & DELETE /api/profiles/:username/follow', () => {
-    let followerToken: string;
+    let follower: FakeUserSeed;
+    let target: FakeUserSeed;
 
     beforeEach(async () => {
-      followerToken = await registerUser('alice@example.com', 'alice');
-      await registerUser('bob@example.com', 'bob');
+      follower = await seeder.createFakeUser({ username: 'alice' });
+      target = await seeder.createFakeUser({
+        username: 'bob',
+        bio: null,
+        image: null,
+      });
     });
 
     it('should follow and unfollow target user cleanly and reflect status in GET profile', async () => {
-      const followRes = await request(app.getHttpServer())
-        .post('/api/profiles/bob/follow')
-        .set('Authorization', `Bearer ${followerToken}`)
+      const followRes = await request(ctx.app.getHttpServer())
+        .post(`/api/profiles/${target.user.username}/follow`)
+        .set('Authorization', `Bearer ${follower.token}`)
         .expect(200);
 
       expect(followRes.body.profile).toEqual({
@@ -127,46 +89,48 @@ describe('Profiles (e2e)', () => {
         following: true,
       });
 
-      const repeatFollowRes = await request(app.getHttpServer())
-        .post('/api/profiles/bob/follow')
-        .set('Authorization', `Bearer ${followerToken}`)
+      const repeatFollowRes = await request(ctx.app.getHttpServer())
+        .post(`/api/profiles/${target.user.username}/follow`)
+        .set('Authorization', `Bearer ${follower.token}`)
         .expect(200);
       expect(repeatFollowRes.body.profile.following).toBe(true);
 
-      const authProfileRes = await request(app.getHttpServer())
-        .get('/api/profiles/bob')
-        .set('Authorization', `Bearer ${followerToken}`)
+      const authProfileRes = await request(ctx.app.getHttpServer())
+        .get(`/api/profiles/${target.user.username}`)
+        .set('Authorization', `Bearer ${follower.token}`)
         .expect(200);
       expect(authProfileRes.body.profile.following).toBe(true);
 
-      const unfollowRes = await request(app.getHttpServer())
-        .delete('/api/profiles/bob/follow')
-        .set('Authorization', `Bearer ${followerToken}`)
+      const unfollowRes = await request(ctx.app.getHttpServer())
+        .delete(`/api/profiles/${target.user.username}/follow`)
+        .set('Authorization', `Bearer ${follower.token}`)
         .expect(200);
       expect(unfollowRes.body.profile.following).toBe(false);
 
-      const afterUnfollowRes = await request(app.getHttpServer())
-        .get('/api/profiles/bob')
-        .set('Authorization', `Bearer ${followerToken}`)
+      const afterUnfollowRes = await request(ctx.app.getHttpServer())
+        .get(`/api/profiles/${target.user.username}`)
+        .set('Authorization', `Bearer ${follower.token}`)
         .expect(200);
       expect(afterUnfollowRes.body.profile.following).toBe(false);
     });
 
     it('should return 400 when user tries to follow themselves', async () => {
-      await request(app.getHttpServer())
-        .post('/api/profiles/alice/follow')
-        .set('Authorization', `Bearer ${followerToken}`)
+      await request(ctx.app.getHttpServer())
+        .post(`/api/profiles/${follower.user.username}/follow`)
+        .set('Authorization', `Bearer ${follower.token}`)
         .expect(400);
     });
 
-    it('should return 401 when following without token and 404 for unknown target', async () => {
-      await request(app.getHttpServer())
-        .post('/api/profiles/bob/follow')
+    it('should return 401 when following without token', async () => {
+      await request(ctx.app.getHttpServer())
+        .post(`/api/profiles/${target.user.username}/follow`)
         .expect(401);
+    });
 
-      await request(app.getHttpServer())
+    it('should return 404 when following a nonexistent target user', async () => {
+      await request(ctx.app.getHttpServer())
         .post('/api/profiles/missing_user/follow')
-        .set('Authorization', `Bearer ${followerToken}`)
+        .set('Authorization', `Bearer ${follower.token}`)
         .expect(404);
     });
   });

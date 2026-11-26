@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
+import { DEFAULT_REDIS_DB } from '../common/constants/app.constants.js';
 import { RedisService, REDIS_CLIENT } from './redis.service.js';
 
 const REDIS_RECONNECT_MAX_DELAY = 3000;
@@ -17,6 +18,7 @@ const REDIS_RECONNECT_STEP = 100;
           host: configService.getOrThrow<string>('REDIS_HOST'),
           port: configService.getOrThrow<number>('REDIS_PORT'),
           password: configService.get<string>('REDIS_PASSWORD') || undefined,
+          db: configService.get<number>('REDIS_DB', DEFAULT_REDIS_DB),
           retryStrategy: (times: number) => {
             return Math.min(
               times * REDIS_RECONNECT_STEP,
